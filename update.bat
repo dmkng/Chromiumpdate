@@ -4,14 +4,14 @@
 title Chromium Updater
 cd/d %~dp0
 
-if exist updaterev goto rev
+if exist LAST_CHANGE goto rev
 
 choice /c yn /n /m "Are you sure you want to download and unpack Chromium to %cd%? [Y/N]"
-if %errorlevel% NEQ 1 exit /b
+if %errorlevel% neq 1 exit /b
 goto arch
 
 :rev
-set/p oldrev=<updaterev
+set/p oldrev=<LAST_CHANGE
 echo Current revision is %oldrev%
 
 :arch
@@ -25,28 +25,28 @@ set arch=Win_x64
 
 :get
 echo Checking newest revision...
-for /f "delims=" %%a in ('curl -sS "https://download-chromium.appspot.com/rev/%arch%?type=snapshots"') do (
-	set rev=%%a
-	goto dwn
-)
-goto skip
+set url=https://storage.googleapis.com/chromium-browser-snapshots/%arch%/LAST_CHANGE
+curl -sSfO %url%
+if %errorlevel% equ 9009 (
+	echo Using PowerShell instead...
+	powershell -NoProfile -Command "(New-Object Net.WebClient).DownloadFile('%url%','LAST_CHANGE')"
+) else if %errorlevel% neq 0 goto skip
 
-:dwn
-set "rev=%rev:*content":"=%"
-set "rev=%rev:"=" & ::%"
+set/p rev=<LAST_CHANGE
 echo Newest revision is %rev%
 
 if "%rev%"=="%oldrev%" goto skip
 
 echo Downloading...
-
-curl -O "https://storage.googleapis.com/chromium-browser-snapshots/%arch%/%rev%/chrome-win.zip"
-if %errorlevel% NEQ 0 goto skip
+set url=https://storage.googleapis.com/chromium-browser-snapshots/%arch%/%rev%/chrome-win.zip
+curl -fO %url%
+if %errorlevel% equ 9009 (
+	echo Using PowerShell instead...
+	powershell -NoProfile -Command "(New-Object Net.WebClient).DownloadFile('%url%','chrome-win.zip')"
+) else if %errorlevel% neq 0 goto skip
 
 for /d %%a in ("*") do rd/s/q "%%a"
-for %%a in ("*") do if not "%%a"=="%~nx0" if not "%%a"=="chrome-win.zip" del/q "%%a"
-
-echo %rev%>updaterev
+for %%a in ("*") do if not "%%a"=="%~nx0" if not "%%a"=="LAST_CHANGE" if not "%%a"=="chrome-win.zip" del/q "%%a"
 
 echo Unpacking...
 
@@ -63,7 +63,7 @@ goto run
 timeout /t 1 /nobreak >nul 2>&1
 
 :run
-start .\chrome
+start .\chrome %*
 exit /b
 
 :: */
